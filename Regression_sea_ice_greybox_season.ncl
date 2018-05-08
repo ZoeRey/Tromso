@@ -33,6 +33,8 @@ do ilat=0,Nlat0-1
  Sum_cos_lat=Sum_cos_lat+cos(lat(ilat)*0.0174533)
 end do
 
+
+
 SIC=new((/365*Nyear,Nlat0,Nlon/),float)
 SIC!0="time"
 SIC!1="lat"
@@ -76,9 +78,9 @@ do imonth=0, Nmonths-1
   datapath2_sea_ice="../nc/"
 
   fileogrb = datapath_sea_ice+"SIC."+iyx+"."+imx+".grb"
-;  fileonc = datapath2_sea_ice+"SIC."+iyx+"."+imx+".nc"
-;  system("cdo -R -f nc -t ecmwf copy "+fileogrb+" "+fileonc)
-;  system("/bin/rm -f "+fileonc)
+  fileonc = datapath2_sea_ice+"SIC."+iyx+"."+imx+".nc"
+  system("cdo -R -f nc -t ecmwf copy "+fileogrb+" "+fileonc)
+  system("/bin/rm -f "+fileonc)
 
   Tf1=addfile(datapath_sea_ice+"SIC."+iyx+"."+imx+".grb","r")
 
@@ -86,7 +88,7 @@ do imonth=0, Nmonths-1
 
 ;printMinMax(SIC_month,0)
 
-  SIC(monthb(imonth)+iyear*365:monthe(imonth)+iyear*365,:,:)=SIC_month(0:month(imonth)-1,:,:)
+  SIC(monthb(imonth)+iyear*365:monthe(imonth)+iyear*365,:,:)=SIC(monthb(imonth)+iyear*365:monthe(imonth)+iyear*365,:,:)+SIC_month(0:month(imonth)-1,:,:)
 
 delete(SIC_month)
 
@@ -105,12 +107,21 @@ end if
 end do
 end do 
 
-Area=0.
- do ilat=4,9
-  do ilon=76,108
- Area=Area+(R*R*cos(lat0(ilat)*0.0174533)*(2.5*0.0174533)*(2.5*0.0174533))*S(ilat,ilon)
+Area1=0.
+ do ilat=0,18
+  do ilon=3,7
+ Area1=Area1+(R*R*cos(lat0(ilat)*0.0174533)*(2.5*0.0174533)*(2.5*0.0174533))*S(ilat,ilon)
 end do
 end do
+
+Area2=0.
+ do ilat=0,18
+  do ilon=138,143
+ Area2=Area2+(R*R*cos(lat0(ilat)*0.0174533)*(2.5*0.0174533)*(2.5*0.0174533))*S(ilat,ilon)
+end do
+end do
+
+Area=Area1+Area2
 
 ;-----------------------------------------------------------
 ;ENERGY LATENT, PLANETARY WAVES, DAILY RESOLUTION
@@ -154,7 +165,7 @@ do imonth=0, Nmonths-1
    vQp!0="time"
    vQp!1="lat"
 
-   vQ(monthb(imonth)+iyear*365:monthe(imonth)+iyear*365,:)=vQp(0:month(imonth)-1,:)
+   vQ(monthb(imonth)+iyear*365:monthe(imonth)+iyear*365,:)=vQ(monthb(imonth)+iyear*365:monthe(imonth)+iyear*365,:)+vQp(0:month(imonth)-1,:)
 
 delete(vQp)
 delete(vQtot)
@@ -172,7 +183,7 @@ vQp_lon=new((/365*Nyear,Nlat01,6/),float)
 vQp_lon!0="time"
 vQp_lon!1="lat"
 vQp_lon!2="lon"
-vQp_lon&time=fspan(0,365*Nyear-1,365*Nyear)
+vQp_lon&time=vQ&time
 vQp_lon&lat=Tf1&lat
 vQp_lon&lon=fspan(0,5,6)
 
@@ -213,17 +224,27 @@ SIC_an=calcDayAnomTLL(SIC,yyyyddd,SIC_sm)
 ;printMinMax(vQp_an,0)
 ;printMinMax(SIC_an,0)  
 
-vQp_an!0="time"
-vQp_an&time=fspan(0,365*Nyear-1,365*Nyear)
-
 ;-----------------------------------------------------------
-;REGRESSION FOR THE ENTIRE YEAR
+;REGRESSION FOR THE SUMMER
 
 
 lag=40
 Nlag=2*lag+1
 
-  vQp_reg_summer=vQp_an(:,40,0)
+Reg_summer=new((/Nlag,Nlat0,Nlon/),float)
+Reg_summer!0="time_lag"
+Reg_summer!1="lat"
+Reg_summer!2="lon"
+Reg_summer&time_lag=fspan(-lag,lag,2*lag+1)
+Reg_summer&lat=Tf0&g0_lat_1
+Reg_summer&lon=Tf0&g0_lon_2
+Reg_summer=0.
+
+do iyear=0,Nyear-1
+
+  vQp_reg_summer=vQp_an(161+365*iyear:275+365*iyear,40,0) ;70°N and no longitude and summer
+  SIC_reg_summer=SIC_an(161+365*iyear:275+365*iyear,:,:)  
+
 
   Reg=new((/Nlag,Nlat0,Nlon/),float)
   Reg!0="time_lag"
@@ -233,77 +254,77 @@ Nlag=2*lag+1
   Reg&lat=Tf0&g0_lat_1
   Reg&lon=Tf0&g0_lon_2
 
-
-  N=dimsizes(vQp_an&time)
+  N=dimsizes(vQp_reg_summer&time)
 
   do ilat=0,Nlat0-1
    do ilon=0,Nlon-1
     do ilag=-lag,lag
 
-  Reg(lag+ilag,ilat,ilon)=avg(SIC_an(lag+ilag:N-lag-1+ilag,ilat,ilon)*vQp_reg_summer(lag:N-1-lag))/(variance(vQp_reg_summer(lag:N-1-lag)))
+  Reg(lag+ilag,ilat,ilon)=avg(SIC_reg_summer(lag+ilag:N-lag-1+ilag,ilat,ilon)*vQp_reg_summer(lag:N-1-lag))/(variance(vQp_reg_summer(lag:N-1-lag)))
 
 
     end do
    end do
   end do
 
+ Reg_summer=Reg_summer+Reg
+
+end do
+
+Reg_summer=Reg_summer/Nyear
+
 ;-----------------------------------------------------
+;GREY BOX AND MEAN
 
-;Reg_plot0=dim_avg(Reg(:,0:24,:))     ;30 to 90 °N
-;Reg_plot=dim_avg(Reg_plot0)
-;lat_arctic=(/90,87.5,85,82.5,80,77.5,75,72.5,70,67.5,65,62.5,60,57.5,55,52.5,50,47.5,45,42.5,40,37.5,35,32.5,30/)
-; do ilat=0,24
-;Reg_plot0(:,ilat)=Reg_plot0(:,ilat)*cos(lat_arctic(ilat)*0.0174533)
-; end do
-;Reg_plot=dim_sum(Reg_plot0)/Sum_cos_lat
+lonb=(/0,19/)
+lone=(/18,24/)
 
-;---------------------------------------------------------
-;BARENTZ AREA AND MEAN
+Reg2=Reg_summer(:,3:7,0:18)
+;print(Reg2&lon)
+Reg3=Reg(:,3:7,138:143)
+;print(Reg3&lon)
 
-Reg_box=Reg(:,4:9,76:108)
+Reg_box=new((/Nlag,5,25/),float)
+Reg_box!0="time_lag"
+Reg_box!1="lat"
+Reg_box!2="lon"
+Reg_box&time_lag=fspan(-lag,lag,2*lag+1)
+Reg_box&lat=fspan(0,4,5)
+Reg_box&lon=fspan(0,25,25)
+Reg_box=0.
+
+Reg_box(:,:,lonb(0):lone(0))=Reg2
+Reg_box(:,:,lonb(1):lone(1))=Reg3
+
+;print(Reg_box&lat)
+
 Reg_plot0=dim_avg(Reg_box)
+Reg_plot=dim_avg(Reg_plot0)
+;printVarSummary(Reg_plot0)
 
-lat_barentz=(/80.,77.5,75.,72.5,70.,67.5/)
- do ilat=0,5
-Reg_plot0(:,ilat)=Reg_plot0(:,ilat)*cos(lat_barentz(ilat)*0.0174533)
+lat_grey_box=(/82.5,80,77.5,75,72.5/)
+
+ do ilat=0,4
+Reg_plot0(:,ilat)=Reg_plot0(:,ilat)*cos(lat_grey_box(ilat))
  end do
-Reg_plot=dim_sum(Reg_plot0)/Sum_cos_lat
 
+Reg_plot=dim_sum(Reg_plot0)/Sum_cos_lat
 Reg_plot!0="time_lag"
 Reg_plot&time_lag=fspan(-lag,lag,2*lag+1)
 
 printMinMax(Reg_plot,0)
-
-
-;Stat_sign2=Stat_sign(:,4:9)
-
-
-; do ilat=0,5
-;Stat_sign2(:,ilat)=Stat_sign2(:,ilat)*cos(lat_barentz(ilat))
-; end do
-;Stat_sign_plot=dim_sum(Stat_sign2)/dim_sum(cos(lat))
-
 ;------------------------------------------------------------
-;STATISTICAL SIGNIFICANCE  
-
+;STATISTICAL SIGNIFICANCE FOR SUMMER
 ;RANDOM PHASE FOR vQp_reg
 
 
-Stat_sign=new((/Nlag/),float)
-Stat_sign!0="time_lag"
-;Stat_sign!1="lat"
-Stat_sign&time_lag=fspan(-lag,lag,2*lag+1)
-;Stat_sign&lat=Tf0&g0_lat_1
-Stat_sign=0.
-
-
-;printMinMax(Stat_sign,0)
-
+Stat=new((/Nlag/),float)
+Stat!0="time_lag"
+Stat&time_lag=fspan(-lag,lag,2*lag+1)
+Stat=0.
 
 vQp_reg_rand_phase=new(Nyear*365,float)
-;vQp_reg_rand_phase=new(181,float)
 vQp_reg_rand_phase!0="time"
-;vQp_reg_rand_phase&time=fspan(0,180,181)
 vQp_reg_rand_phase&time=fspan(0,365*Nyear-1,Nyear*365)
 
 
@@ -315,14 +336,32 @@ vQp_reg_rand_phase&time=fspan(0,365*Nyear-1,Nyear*365)
 iSS=0
 ;print(iSS)
 
- do i=iSS,Nstat-1
+
+ do istat=0,Nstat-1
+
+Stat_sign_summer=new((/Nlag/),float)
+copy_VarCoords(Stat,Stat_sign_summer)
+Stat_sign_summer=0. 
+
+Reg_summer_rand=new((/Nlag,Nlat0,Nlon/),float)
+Reg_summer_rand!0="time_lag"
+Reg_summer_rand!1="lat"
+Reg_summer_rand!2="lon"
+Reg_summer_rand&time_lag=fspan(-lag,lag,2*lag+1)
+Reg_summer_rand&lat=Tf0&g0_lat_1
+Reg_summer_rand&lon=Tf0&g0_lon_2
+Reg_summer_rand=0.
 
 
  x=generate_unique_indices(365*Nyear)
  do k=0,365*Nyear-1
-  vQp_reg_rand_phase(k)=vQp_reg_summer(x(k))
+  vQp_reg_rand_phase(k)=vQp_an(x(k),40,0)
  end do
 
+do iyear=0,Nyear-1
+
+vQp_reg_summer2=vQp_reg_rand_phase(161+365*iyear:275+365*iyear)
+SIC_reg_summer2=SIC_an(161+365*iyear:275+365*iyear,:,:)
 
 ;RGRESSION WITH vQp_reg_rand_phase
 
@@ -330,12 +369,12 @@ iSS=0
   copy_VarCoords(Reg,Reg_rand_phase)
 
 
-  N=dimsizes(vQp_reg_rand_phase&time)
+  N=dimsizes(vQp_reg_summer2&time)
 
   do ilat=0,Nlat0-1
    do ilon=0,Nlon-1
     do ilag=-lag,lag
-  Reg_rand_phase(lag+ilag,ilat,ilon)=avg(SIC_an(lag+ilag:N-lag-1+ilag,ilat,ilon)*vQp_reg_rand_phase(lag:N-1-lag))/(variance(vQp_reg_rand_phase(lag:N-1-lag)))
+  Reg_rand_phase(lag+ilag,ilat,ilon)=avg(SIC_reg_summer2(lag+ilag:N-lag-1+ilag,ilat,ilon)*vQp_reg_summer2(lag:N-1-lag))/(variance(vQp_reg_summer2(lag:N-1-lag)))
 
     end do
    end do
@@ -343,19 +382,43 @@ iSS=0
 
 ;printVarSummary(Reg_rand_phase)
 
+Reg_summer_rand=Reg_rand_phase+Reg_summer_rand
+delete(Reg_rand_phase)
+end do
+
+Reg_summer_rand=Reg_summer_rand/(Nyear)
 
 
- Reg_rand_phase2=dim_avg(Reg_rand_phase(:,4:9,76:108))    
-; Reg_rand_phase_plot=dim_avg(Reg_rand_phase2) 
- do ilat=0,5
-Reg_rand_phase2(:,ilat)=Reg_rand_phase2(:,ilat)*cos(lat_barentz(ilat)*0.0174533)
+Reg2_rand_phase=Reg_summer_rand(:,3:7,0:18)
+Reg3_rand_phase=Reg_summer_rand(:,3:7,138:143)
+
+Reg_box_rand_phase=new((/Nlag,5,25/),float)
+copy_VarCoords(Reg_box,Reg_box_rand_phase)
+Reg_box_rand_phase=0.
+Reg_box_rand_phase(:,:,lonb(0):lone(0))=Reg2_rand_phase
+Reg_box_rand_phase(:,:,lonb(1):lone(1))=Reg3_rand_phase
+Reg_rand_phase_plot2=dim_avg(Reg_box_rand_phase)
+ do ilat=0,4
+Reg_rand_phase_plot2(:,ilat)=Reg_rand_phase_plot2(:,ilat)*cos(lat_grey_box(ilat)*0.0174533)
  end do
-Reg_rand_phase_plot=dim_sum(Reg_rand_phase2)/Sum_cos_lat
+Reg_rand_phase_plot=dim_sum(Reg_rand_phase_plot2)/Sum_cos_lat
 
 
 ;COMPARISON
 
-  Stat_sign=Stat_sign+where(abs(Reg_rand_phase_plot).lt.abs(Reg_plot),1.,0.)
+  Stat_sign_summer=Stat_sign_summer+where(abs(Reg_rand_phase_plot).lt.abs(Reg_plot),1.,0.)
+
+  Stat=Stat+Stat_sign_summer
+
+print(istat)
+
+delete(Stat_sign_summer)
+delete(Reg_summer_rand)
+
+end do
+
+Stat=Stat/Nstat*100
+printMinMax(Stat,0)
 
 
 
@@ -371,19 +434,11 @@ Reg_rand_phase_plot=dim_sum(Reg_rand_phase2)/Sum_cos_lat
 
 
 
-delete(Reg_rand_phase)
-delete(Reg_rand_phase2)
-;delete(Reg_box_rand_phase)
-print(i)
-end do
-
-
-Stat_sign=Stat_sign/Nstat*100
 
 ;---------------------------------------------------------
 ;PLOT
 
-Stat_sign_plot=Stat_sign
+Stat_sign_plot=Stat
 Stat_sign_plot!0="time_lag"
 Stat_sign_plot&time_lag=fspan(-lag,lag,2*lag+1)
 
@@ -401,11 +456,11 @@ Reg_split(2,:)=0.
 ;PLOT 2D
 
 
-wks  = gsn_open_wks("eps","regression_sea_ice_barentz")
+wks  = gsn_open_wks("eps","regression_sea_ice_grey_box_summer")
  
 
 res = True 
-res@tiMainString="Barents/PW"
+res@tiMainString="Summer/Latent/PW" 
 res@tiXAxisString = "Time lag (days)"  
 res@tiYAxisString   = "Regression coefficient (/PW)"  
 res@xyLineColors=(/"black","green","black"/)
@@ -414,21 +469,21 @@ res@xyDashPatterns=(/0,0,1/)
      
 plot=gsn_csm_xy(wks,Reg_plot&time_lag, Reg_split,res)   
 
+
 ;-------------------------------------------------------------
 ;SAVE
 
 path_saving = "../REGRESSION/STAT_SIGN/"
-system("/bin/rm -f "+path_saving+"Sea_ice_barents.nc")
-nc = addfile(path_saving + "Sea_ice_barents.nc","c")
-nc->Reg_split_barents=Reg_split
-;nc->Stat_summer=Stat_summer
+system("/bin/rm -f "+path_saving+"Sea_ice_greybox_summer.nc")
+nc = addfile(path_saving + "Sea_ice_greybox_summer.nc","c")
+nc->Reg_split_greybox_summer=Reg_split
 
 
 
 
 
 ;-----------------------------------------------------------------
-print("REGRESSION SEA ICE DONE BARENTZ ")
+print("REGRESSION SEA ICE DONE GREYBOX SUMMER")
 
 end
 
