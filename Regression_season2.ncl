@@ -1,4 +1,5 @@
 
+
 begin
 
 load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/contributed.ncl"
@@ -18,7 +19,7 @@ R=6371000.
 
 Nyear=33
 Nmonths=12
-Nstat=200
+Nstat=100
 
 Nlat0=dimsizes(Tf0&g0_lat_1)
 Nlat01=dimsizes(Tf01&lat)
@@ -36,9 +37,9 @@ T&lon=Tf0&g0_lon_2
 T=0.
 
 vQ=new((/365*Nyear,Nlat01/),float)
-vQ!0="time_year"
+vQ!0="time"
 vQ!1="lat"
-vQ&time_year=fspan(0,364*Nyear,365*Nyear)
+vQ&time=fspan(0,364*Nyear,365*Nyear)
 vQ&lat=Tf01&lat
 vQ=0.
 
@@ -73,16 +74,16 @@ do imonth=0, Nmonths-1
   datapath2_temperature="../nc/"
 
   fileogrb = datapath_temperature+"SAT."+iyx+"."+imx+".grb"
-  fileonc = datapath2_temperature+"SAT."+iyx+"."+imx+".nc"
-  system("cdo -R -f nc -t ecmwf copy "+fileogrb+" "+fileonc)
-  system("/bin/rm -f "+fileonc)
+;  fileonc = datapath2_temperature+"SAT."+iyx+"."+imx+".nc"
+;  system("cdo -R -f nc -t ecmwf copy "+fileogrb+" "+fileonc)
+;  system("/bin/rm -f "+fileonc)
 
   Tf2=addfile(datapath_temperature+"SAT."+iyx+"."+imx+".grb","r")
   T_month=Tf2->2T_GDS0_SFC
 
 ;print(dimsizes(Tf2&forecast_time0))
 
-  T(monthb(imonth)+iyear*365:monthe(imonth)+iyear*365,:,:)=T(monthb(imonth)+iyear*365:monthe(imonth)+iyear*365,:,:)+T_month(0:month(imonth)-1,:,:)
+  T(monthb(imonth)+iyear*365:monthe(imonth)+iyear*365,:,:)=T_month(0:month(imonth)-1,:,:)
 
 delete(T_month)
 
@@ -135,7 +136,7 @@ do imonth=0, Nmonths-1
    vQp!0="time"
    vQp!1="lat"
 
-   vQ(monthb(imonth)+iyear*365:monthe(imonth)+iyear*365,:)=vQ(monthb(imonth)+iyear*365:monthe(imonth)+iyear*365,:)+vQp(0:month(imonth)-1,:)
+   vQ(monthb(imonth)+iyear*365:monthe(imonth)+iyear*365,:)=vQp(0:month(imonth)-1,:)
 
 delete(vQp)
 delete(vQtot)
@@ -153,7 +154,7 @@ vQp_lon=new((/365*Nyear,Nlat01,6/),float)
 vQp_lon!0="time"
 vQp_lon!1="lat"
 vQp_lon!2="lon"
-vQp_lon&time=vQ&time_year
+vQp_lon&time=fspan(0,365*Nyear-1,365*Nyear)
 vQp_lon&lat=Tf1&lat
 vQp_lon&lon=fspan(0,5,6)
 
@@ -189,13 +190,6 @@ SAT_sm=runave_n(SAT_clim,8,-1,0)
 vQp_an=calcDayAnomTLL(vQp_lon,yyyyddd,vQp_sm)
 SAT_an=calcDayAnomTLL(T,yyyyddd,SAT_sm)
 
-;vQp_sm=runave_n(vQp_an,7,-1,0)
-;SAT_sm=runave_n(SAT_an,7,-1,0)
-
-;vQp_sm!0="time"
-;vQp_sm&time=fspan(0,365*Nyear-1,365*Nyear)
-;SAT_sm!0="time"
-;SAT_sm&time=fspan(0,Nyear*365-1,Nyear*365)
 
 ;printVarSummary(vQp_sm)
 ;printVarSummary(vQp_an)
@@ -225,6 +219,8 @@ do iyear=0,Nyear-1
   vQp_reg_summer=vQp_an(161+365*iyear:275+365*iyear,40,0) ;70°N and no longitude and summer
   SAT_reg_summer=SAT_an(161+365*iyear:275+365*iyear,:,:)
 
+vQp_reg_summer!0="time"
+vQp_reg_summer&time=fspan(0,114,115)
 
   Reg=new((/Nlag,Nlat0,Nlon/),float)
   Reg!0="time_lag"
@@ -234,7 +230,7 @@ do iyear=0,Nyear-1
   Reg&lat=Tf0&g0_lat_1
   Reg&lon=Tf0&g0_lon_2
 
-  N=dimsizes(vQp_reg_summer&time_year)
+  N=dimsizes(vQp_reg_summer&time)
 
    do ilat=0,Nlat0-1
     do ilon=0,Nlon-1
@@ -249,6 +245,8 @@ do iyear=0,Nyear-1
 
 end do
 
+
+
 ;-------------------------------------------------------------
 ;REGRESSION_WINTER
 
@@ -256,8 +254,11 @@ do iyear=1,Nyear-2
 
   vQp_reg_winter=vQp_an(343+365*iyear:109+365+365*iyear,40,0) ;70°N and no longitude and summer
   SAT_reg_winter=SAT_an(343+365*iyear:109+365+365*iyear,:,:)
-;printVarSummary(vQp_reg)
+;printVarSummary(vQp_reg_winter)
 ;printVarSummary(SAT_reg)
+
+vQp_reg_winter!0="time"
+vQp_reg_winter&time=fspan(0,131,132)
 
   Reg2=new((/Nlag,Nlat0,Nlon/),float)
   Reg2!0="time_lag"
@@ -267,7 +268,7 @@ do iyear=1,Nyear-2
   Reg2&lat=Tf0&g0_lat_1
   Reg2&lon=Tf0&g0_lon_2
 
-  N=dimsizes(vQp_reg_winter&time_year)
+  N=dimsizes(vQp_reg_winter&time)
 
    do ilat=0,Nlat0-1
     do ilon=0,Nlon-1
@@ -285,9 +286,55 @@ end do
 Reg_summer=Reg_summer/Nyear
 Reg_winter=Reg_winter/(Nyear-2)
 
+;--------------------------------------------------------
 
-;printMinMax(Reg_summer,0)
-;printVarSummary(Reg_summer)
+Reg_negative_summer=new((/Nlag,Nlat0/),float)
+Reg_positive_summer=new((/Nlag,Nlat0/),float)
+copy_VarCoords(Reg_summer,Reg_positive_summer)
+copy_VarCoords(Reg_summer,Reg_negative_summer)
+Reg_negative_summer=0.
+Reg_positive_summer=0.
+
+Reg4=dim_avg(Reg_summer)
+
+
+do ilag=0,2*lag
+ do ilat=0,Nlat0-1
+  do ilon=0,Nlon-1
+
+    if (Reg4(ilag,ilat) .lt. 0) then
+      Reg_negative_summer(ilag,ilat)=Reg4(ilag,ilat)
+    else
+      Reg_positive_summer(ilag,ilat)=(Reg4(ilag,ilat))
+    end if
+
+end do
+end do
+end do
+
+Reg_negative_winter=new((/Nlag,Nlat0/),float)
+Reg_positive_winter=new((/Nlag,Nlat0/),float)
+copy_VarCoords(Reg_winter,Reg_positive_winter)
+copy_VarCoords(Reg_winter,Reg_negative_winter)
+Reg_negative_winter=0.
+Reg_positive_winter=0.
+
+Reg5=dim_avg(Reg_winter)
+
+
+do ilag=0,2*lag
+ do ilat=0,Nlat0-1
+  do ilon=0,Nlon-1
+
+    if (Reg5(ilag,ilat) .lt. 0) then
+      Reg_negative_winter(ilag,ilat)=Reg5(ilag,ilat)
+    else
+      Reg_positive_winter(ilag,ilat)=(Reg5(ilag,ilat))
+    end if
+
+end do
+end do
+end do
 
 
 ;------------------------------------------------------------
@@ -295,111 +342,115 @@ Reg_winter=Reg_winter/(Nyear-2)
 
 ;RANDOM PHASE FOR vQ_reg
 
-
-vQp_reg_rand_phase_summer=new(115,float)
-vQp_reg_rand_phase_summer!0="time"
-vQp_reg_rand_phase_summer&time=fspan(0,114,115)
-
-Stat_sign_summer=new((/Nlag,Nlat0/),float)
-Stat_sign_summer!0="time_lag"
-Stat_sign_summer!1="lat"
-Stat_sign_summer&time_lag=fspan(-lag,lag,2*lag+1)
-Stat_sign_summer&lat=Tf0&g0_lat_1
-Stat_sign_summer=0.
-
-Stat_summer=new((/Nlag,Nlat0/),float)
-copy_VarCoords(Stat_sign_summer,Stat_summer)
-Stat_summer=0.
+Stat2=new((/Nlag,25/),float)
+Stat2!0="time_lag"
+Stat2!1="lat"
+Stat2&time_lag=fspan(-lag,lag,2*lag+1)
+Stat2&lat=fspan(90,30,25)
+Stat2=0.
+Stat3=new((/Nlag,25/),float)
+copy_VarCoords(Stat2,Stat3)
+Stat3=0.
 
 ;file_back = "../REGRESSION/STAT_SIGN/Stat_sign_summer.nc"
 ;a=addfile("../REGRESSION/STAT_SIGN/Stat_sign_summer.nc","r")
 ;a = addfile(file_back,"r")
 ;Stat_sign = a->$"Stat_summer"$ ; time,lat,lon
-;iSS= a->$"isummer"$
-isummer=-1
+;isummer= a->$"isummer"$
+
+isummer=0
 
 
-
-;printMinMax(Stat_sign,0)
-
-;do iyear=isummer+1,Nyear-1
-
-Stat_sign_summer=new((/Nlag,Nlat0/),float)
-Stat_sign_summer!0="time_lag"
-Stat_sign_summer!1="lat"
-Stat_sign_summer&time_lag=fspan(-lag,lag,2*lag+1)
-Stat_sign_summer&lat=Tf0&g0_lat_1
-Stat_sign_summer=0.
-;vQp_reg_summer2=vQp_an(161+365*iyear:275+365*iyear,40,0)
-;SAT_reg_summer2=SAT_an(161+365*iyear:275+365*iyear,:,:)
-
-;print(vQp_reg_summer)
-
-;  do i=0,Nstat-1
-
-; x=generate_unique_indices(115)
-; do k=0,114
-;  vQp_reg_rand_phase_summer(k)=vQp_reg_summer2(x(k))
-; end do
+vQp_reg_rand_phase_summer=new(365*Nyear,float)
+vQp_reg_rand_phase_summer!0="time_year"
+vQp_reg_rand_phase_summer&time_year=fspan(0,365*Nyear-1,365*Nyear)
 
 
-;RGRESSION WITH vQp_reg_rand_phase_summer
+do istat=0,Nstat-1
 
-;  Reg_rand_phase_summer=new((/Nlag,Nlat0,Nlon/),float)
-;  copy_VarCoords(Reg_summer,Reg_rand_phase_summer)
+Reg_summer_rand=new((/Nlag,Nlat0,Nlon/),float)
+Reg_summer_rand!0="time_lag"
+Reg_summer_rand!1="lat"
+Reg_summer_rand!2="lon"
+Reg_summer_rand&time_lag=fspan(-lag,lag,2*lag+1)
+Reg_summer_rand&lat=Tf0&g0_lat_1
+;Reg_summer_rand&lon=Tf0&g0_lon_2
+Reg_summer_rand=0.
+
+Stat_sign_summer_positive=new((/Nlag,25/),float)
+Stat_sign_summer_positive!0="time_lag"
+Stat_sign_summer_positive!1="lat"
+Stat_sign_summer_positive&time_lag=fspan(-lag,lag,2*lag+1)
+Stat_sign_summer_positive&lat=fspan(90,30,25)
+Stat_sign_summer_positive=0.
+Stat_sign_summer_negative=new((/Nlag,25/),float)
+copy_VarCoords(Stat_sign_summer_positive,Stat_sign_summer_negative)
+Stat_sign_summer_negative=0.
+
+ y=generate_unique_indices(365*Nyear)
+ do k=0,365*Nyear-1
+  vQp_reg_rand_phase_summer(k)=vQp_an(y(k),40,0)
+ end do
+
+do iyear=isummer,Nyear-1
+ 
+ vQp_reg_summer2=vQp_reg_rand_phase_summer(161+365*iyear:275+365*iyear)
+ SAT_reg_summer2=SAT_an(161+365*iyear:275+365*iyear,:,:)
+
+vQp_reg_summer2!0="time"
+vQp_reg_summer2&time=fspan(0,114,115)
+
+;REGRESSION WITH vQp_reg_rand_phase_summer
+
+  Reg_rand_phase_summer=new((/Nlag,Nlat0,Nlon/),float)
+  copy_VarCoords(Reg_summer,Reg_rand_phase_summer)
 
 
-;  N=dimsizes(vQp_reg_rand_phase_summer&time_year)
+  N=dimsizes(vQp_reg_summer2&time)
 
-;  do ilat=0,Nlat0-1
-;   do ilon=0,Nlon-1
-;    do ilag=-lag,lag
-;  Reg_rand_phase_summer(lag+ilag,ilat,ilon)=avg(SAT_reg_summer2(lag+ilag:N-lag-1+ilag,ilat,ilon)*vQp_reg_rand_phase_summer(lag:N-1-lag))/(variance(vQp_reg_rand_phase_summer(lag:N-1-lag)))
+  do ilat=0,Nlat0-1
+   do ilon=0,Nlon-1
+    do ilag=-lag,lag
+  Reg_rand_phase_summer(lag+ilag,ilat,ilon)=avg(SAT_reg_summer2(lag+ilag:N-lag-1+ilag,ilat,ilon)*vQp_reg_summer2(lag:N-1-lag))/(variance(vQp_reg_summer2(lag:N-1-lag)))
 
-;    end do
-;   end do
-;  end do
+    end do
+   end do
+  end do
 
 ;printVarSummary(Reg_rand_phase_summer)
+;printVarSummary(Reg_summer_rand)
 
+Reg_summer_rand=Reg_rand_phase_summer+Reg_summer_rand
 
+delete(Reg_rand_phase_summer)
+
+end do
+
+Reg_summer_rand=Reg_summer_rand/(Nyear-2)
 
 ;COMPARISON
 
- ; Stat_sign_summer=Stat_sign_summer+where(abs(dim_avg(Reg_rand_phase_summer)).lt.abs(dim_avg(Reg_summer)),1.,0.)
+  Stat_sign_summer_positive=Stat_sign_summer_positive+where(abs(dim_avg(Reg_summer_rand(:,0:24,:))).lt.abs(Reg_positive_summer(:,0:24)),1.,0.)
+
+  Stat_sign_summer_negative=Stat_sign_summer_negative+where(abs(dim_avg(Reg_summer_rand(:,0:24,:))).lt.abs(Reg_negative_summer(:,0:24)),1.,0.)
 
 
-;end do
 
-;Stat_sign_summer=Stat_sign_summer/Nstat*100
+  Stat2=Stat2+Stat_sign_summer_positive
+  Stat3=Stat3+Stat_sign_summer_negative
 
-;printMinMax(Stat_sign_summer,0)
+print(istat)
 
+delete(Stat_sign_summer_negative)
+delete(Stat_sign_summer_positive)
+delete(Reg_summer_rand)
 
-;Stat_summer=Stat_summer+Stat_sign_summer
+end do
 
-;printMinMax(Stat_summer,0)
-;delete(Stat_sign_summer)
-;print(iyear)
-
- ;system("rm -f "+file_back)
- ;ncdfRaw = addfile(file_back ,"c")
- ;fAtt = True
- ;fAtt@title = "MC significance test"
- ;fAtt@Conventions = "None"
- ;fAtt@creation_date = systemfunc("date")
- ;fileattdef( ncdfRaw, fAtt )
-
- ;ncdfRaw->Stat_summer = Stat_summer
- ;ncdfRaw->isummer = i
-
-
-;end do
-
-;Stat_summer=Stat_summer/Nyear
-
-
-;printMinMax(Stat_summer,0)
+Stat2=Stat2/Nstat*100
+Stat3=Stat3/Nstat*100
+printMinMax(Stat2,0)
+printMinMax(Stat3,0)
 
 
 ;------------------------------------------------------------
@@ -413,6 +464,9 @@ Stat!1="lat"
 Stat&time_lag=fspan(-lag,lag,2*lag+1)
 Stat&lat=fspan(90,30,25)
 Stat=0.
+Stat1=new((/Nlag,25/),float)
+copy_VarCoords(Stat,Stat1)
+Stat1=0.
 
 ;file_back = "../REGRESSION/STAT_SIGN/Stat_sign_winter.nc"
 ;a=addfile("../REGRESSION/STAT_SIGN/Stat_sign_winter.nc","r")
@@ -425,16 +479,29 @@ iwinter=1
 vQp_reg_rand_phase_winter=new(365*Nyear,float)
 vQp_reg_rand_phase_winter!0="time_year"
 vQp_reg_rand_phase_winter&time_year=fspan(0,365*Nyear-1,365*Nyear)
-;copy_VarCoords(vQp_reg_rand_phase_winter,vQp_reg_rand_phase_winter)
+
 
 do istat=0,Nstat-1
 
-Stat_winter=new((/Nlag,25/),float)
-Stat_winter!0="time_lag"
-Stat_winter!1="lat"
-Stat_winter&time_lag=fspan(-lag,lag,2*lag+1)
-Stat_winter&lat=fspan(90,30,25)
-Stat_winter=0.
+Reg_winter_rand=new((/Nlag,Nlat0,Nlon/),float)
+Reg_winter_rand!0="time_lag"
+Reg_winter_rand!1="lat"
+Reg_winter_rand!2="lon"
+Reg_winter_rand&time_lag=fspan(-lag,lag,2*lag+1)
+Reg_winter_rand&lat=Tf0&g0_lat_1
+Reg_winter_rand&lon=Tf0&g0_lon_2
+Reg_winter_rand=0.
+
+Stat_sign_winter_positive=new((/Nlag,25/),float)
+Stat_sign_winter_positive!0="time_lag"
+Stat_sign_winter_positive!1="lat"
+Stat_sign_winter_positive&time_lag=fspan(-lag,lag,2*lag+1)
+Stat_sign_winter_positive&lat=fspan(90,30,25)
+Stat_sign_winter_positive=0.
+Stat_sign_winter_negative=new((/Nlag,25/),float)
+copy_VarCoords(Stat_sign_winter_positive,Stat_sign_winter_negative)
+Stat_sign_winter_negative=0.
+
 
  y=generate_unique_indices(365*Nyear)
  do k=0,365*Nyear-1
@@ -443,30 +510,18 @@ Stat_winter=0.
 
 do iyear=iwinter,Nyear-2
  
- Stat_sign_winter=new((/Nlag,25/),float)
- Stat_sign_winter!0="time_lag"
- Stat_sign_winter!1="lat"
- Stat_sign_winter&time_lag=fspan(-lag,lag,2*lag+1)
- Stat_sign_winter&lat=fspan(90,30,25)
- Stat_sign_winter=0.
-
  vQp_reg_winter2=vQp_reg_rand_phase_winter(343+365*iyear:109+365+365*iyear)
  SAT_reg_winter2=SAT_an(343+365*iyear:109+365+365*iyear,:,:)
 
-; y=generate_unique_indices(132)
-; do k=0,131
-;  vQp_reg_rand_phase_winter(k)=vQp_reg_winter2(y(k))
-; end do
+vQp_reg_winter2!0="time"
+vQp_reg_winter2&time=fspan(0,131,132) 
 
-;print(vQp_reg_rand_phase_winter(5))
-
-;RGRESSION WITH vQp_reg_rand_phase_summer
+;REGRESSION WITH vQp_reg_rand_phase_summer
 
   Reg_rand_phase_winter=new((/Nlag,Nlat0,Nlon/),float)
   copy_VarCoords(Reg_winter,Reg_rand_phase_winter)
 
-
-  N=dimsizes(vQp_reg_winter2&time_year)
+  N=dimsizes(vQp_reg_winter2&time)
 
   do ilat=0,Nlat0-1
    do ilon=0,Nlon-1
@@ -478,37 +533,39 @@ do iyear=iwinter,Nyear-2
   end do
 
 ;printVarSummary(Reg_rand_phase_winter)
+;printVarSummary(Reg_winter_rand)
+
+Reg_winter_rand=Reg_rand_phase_winter+Reg_winter_rand
+delete(Reg_rand_phase_winter)
+end do
+
+Reg_winter_rand=Reg_winter_rand/(Nyear-2)
 
 ;COMPARISON
 
-  Stat_sign_winter=Stat_sign_winter+where(abs(dim_avg(Reg_rand_phase_winter(:,0:24,:))).lt.abs(dim_avg(Reg_winter(:,0:24,:))),1.,0.)
+  Stat_sign_winter_positive=Stat_sign_winter_positive+where(abs(dim_avg(Reg_winter_rand(:,0:24,:))).lt.abs(Reg_positive_winter(:,0:24)),1.,0.)
+
+  Stat_sign_winter_negative=Stat_sign_winter_negative+where(abs(dim_avg(Reg_winter_rand(:,0:24,:))).lt.abs(Reg_negative_winter(:,0:24)),1.,0.)
 
 
-Stat_winter=Stat_winter+Stat_sign_winter
-delete(Stat_sign_winter)
+  Stat=Stat+Stat_sign_winter_positive
+  Stat1=Stat1+Stat_sign_winter_negative
 
-end do
-
-Stat_winter=Stat_winter/(Nyear-2)
-
-Stat=Stat+Stat_winter
-delete(Stat_winter)
-delete(vQp_reg_rand_phase_winter)
 print(istat)
+
+delete(Stat_sign_winter_positive)
+delete(Stat_sign_winter_negative)
+delete(Reg_winter_rand)
+
 end do
+
 
 Stat=Stat/Nstat*100
+Stat1=Stat1/Nstat*100
 
 
 printMinMax(Stat,0)
-
-
-
-
-
-
- 
-
+printMinMax(Stat1,0)
 
 
 ; system("rm -f "+file_back)
@@ -520,8 +577,6 @@ printMinMax(Stat,0)
 ; fileattdef( ncdfRaw, fAtt )
 ; ncdfRaw->Stat_winter = Stat_winter
 ; ncdfRaw->iwinter = i+1
-
-
 
 
 
@@ -540,11 +595,11 @@ copy_VarCoords(Reg2_summer,Reg2_winter)
 printMinMax(Reg2_summer,0)
 printMinMax(Reg2_winter,0)
 
-Stat_summer2=Stat_summer(:,0:24)
-;Stat_winter2=Stat_winter(:,0:24)
 
-printMinMax(Stat_summer,0)
+printMinMax(Stat2,0)
+printMinMax(Stat3,0)
 printMinMax(Stat,0)
+printMinMax(Stat1,0)
 ;-------------------------------------------------------------
 ;DRAW
 
@@ -570,7 +625,6 @@ res@tiXAxisString = "latitude (deg)"
 res@tiYAxisString = "time lag"
 res@trXReverse=True
 
-plot1 = gsn_csm_contour(wks,Reg2_summer,res) 
 
 res2                      = True
 res2@gsnDraw=False
@@ -590,16 +644,24 @@ res2@tiXAxisString = "latitude (deg)"
 res2@tiYAxisString = "time lag"
 res2@trXReverse=True
 
-;plot2=gsn_csm_contour(wks,Stat_summer2,res2)
-plot3 = gsn_csm_contour(wks,Reg2_winter,res) 
-plot4=gsn_csm_contour(wks,Stat,res2)
+
+plot1 = gsn_csm_contour(wks,Reg2_summer,res)
+plot2 = gsn_csm_contour(wks,Stat2,res2)
+plot3 = gsn_csm_contour(wks,Stat3,res2)
 
 
-;overlay(plot1,plot2)
-overlay(plot3,plot4)
+plot4 = gsn_csm_contour(wks,Reg2_winter,res) 
+plot5 = gsn_csm_contour(wks,Stat,res2)
+plot6 = gsn_csm_contour(wks,Stat1,res2)
+
+
+overlay(plot2,plot3)
+overlay(plot1,plot2)
+overlay(plot5,plot6)
+overlay(plot4,plot5)
 
 plot(0)=plot1
-plot(1)=plot3
+plot(1)=plot4
 
           
 resP=True
@@ -621,10 +683,8 @@ frame(wks)
 path_saving = "../REGRESSION/STAT_SIGN/"
 system("/bin/rm -f "+path_saving+"Stat_sign_season.nc")
 nc = addfile(path_saving + "Stat_sign_season.nc","c")
-nc->Stat_winter=Stat
+;nc->Stat_winter=Stat
 ;nc->Stat_summer=Stat_summer
-
-
 
 
 
